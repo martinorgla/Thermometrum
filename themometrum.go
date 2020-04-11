@@ -29,8 +29,6 @@ func router(w http.ResponseWriter, req *http.Request) {
             log.Fatal(err)
         }
 
-        // temperature.Humidity = temperature.Humidity*2
-
         json, err := json.Marshal(temperature)
 
         if err != nil {

@@ -1,2 +1,2 @@
 # Thermometrum
-Thermometrum backend
+Thermometrum API
