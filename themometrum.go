@@ -1,59 +1,131 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "net/http"
-    "encoding/json"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	_ "github.com/go-sql-driver/mysql"
+	"log"
+	"net/http"
+	"time"
 )
 
 func router(w http.ResponseWriter, req *http.Request) {
-    // TODO: Implement proper router
-    if req.URL.Path != "/api/temperature" {
-        http.Error(w, "404 not found.", http.StatusNotFound)
-        return
-    }
+	// TODO: Implement proper router
+	if req.URL.Path != "/api/temperature" {
+		http.Error(w, "404 not found.", http.StatusNotFound)
+		return
+	}
 
-    switch req.Method {
-    case "GET":
-        // fmt.Fprintf(w, req.URL.Path)
-        // http.ServeFile(w, r, "form.html")
+	switch req.Method {
+	case "GET":
+		var temperatures []Temperature = getAllTemperatures()
 
-    case "POST":
-        decoder := json.NewDecoder(req.Body)
-        var temperature Temperature
+		json, err := json.Marshal(temperatures)
 
-        err := decoder.Decode(&temperature);
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-        if err != nil {
-            log.Fatal(err)
-        }
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(json)
+	case "POST":
+		decoder := json.NewDecoder(req.Body)
+		var temperature Temperature
 
-        json, err := json.Marshal(temperature)
+		err := decoder.Decode(&temperature)
+		handleError(err)
+		insertTemperature(temperature)
 
-        if err != nil {
-            http.Error(w, err.Error(), http.StatusInternalServerError)
-            return
-        }
+		response := Response{"OK", 200}
 
-        w.Header().Set("Content-Type", "application/json")
-        w.Write(json)
-    default:
-        fmt.Fprintf(w, "Sorry, only GET and POST methods are supported.")
-    }
+		json, err := json.Marshal(response)
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(json)
+	default:
+		fmt.Fprintf(w, "Sorry, only GET and POST methods are supported.")
+	}
+}
+
+func dbConn() (db *sql.DB) {
+	dbDriver := "mysql"
+	dbUser := "docker"
+	dbPass := "docker"
+	dbName := "thermometrum"
+	db, err := sql.Open(dbDriver, dbUser+":"+dbPass+"@tcp(db:3306)/"+dbName)
+
+	handleError(err)
+
+	return db
+}
+
+func getAllTemperatures() []Temperature {
+	db := dbConn()
+
+	selDB, err := db.Query("SELECT * FROM temperatures")
+	handleError(err)
+
+	temperature := Temperature{}
+	var res []Temperature
+
+	for selDB.Next() {
+		var room string
+		var temp, humidity float32
+
+		err = selDB.Scan(&temp, &humidity, &room)
+
+		handleError(err)
+
+		temperature.Temperature = temp
+		temperature.Humidity = humidity
+		temperature.Room = room
+
+		res = append(res, temperature)
+	}
+
+	return res
+}
+
+func insertTemperature(temperature Temperature) {
+	db := dbConn()
+
+	_, err := db.Query("INSERT INTO temperatures (room, temperature, humidity, timestamp) VALUES (?, ?, ?, ?)", temperature.Room, temperature.Temperature, temperature.Humidity, time.Now())
+	handleError(err)
+
+	defer db.Close()
+
+	fmt.Println("Temperatuur", temperature.Temperature, "Õhuniiskus", temperature.Humidity, "Ruum", temperature.Room)
+}
+
+func handleError(err error) {
+	if err != nil {
+		panic(err.Error())
+	}
 }
 
 func main() {
-    http.HandleFunc("/", router)
+	http.HandleFunc("/", router)
 
-    fmt.Printf("Starting Thermometrum server in port 8001...\n")
-    if err := http.ListenAndServe(":8001", nil); err != nil {
-        log.Fatal(err)
-    }
+	fmt.Printf("Starting Thermometrum (+SQL) server in port 8001...\n")
+	if err := http.ListenAndServe(":8001", nil); err != nil {
+		log.Fatal(err)
+	}
 }
 
 type Temperature struct {
-    Room string `json:"room"`
+	Room        string  `json:"room"`
 	Temperature float32 `json:"temperature"`
-	Humidity float32 `json:"humidity"`
+	Humidity    float32 `json:"humidity"`
+}
+
+type Response struct {
+	Message string
+	Code    int
 }
