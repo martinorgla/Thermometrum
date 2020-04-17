@@ -7,7 +7,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"net/http"
-	"time"
 )
 
 func router(w http.ResponseWriter, req *http.Request) {
@@ -69,17 +68,18 @@ func dbConn() (db *sql.DB) {
 func getAllTemperatures() []Temperature {
 	db := dbConn()
 
-	selDB, err := db.Query("SELECT * FROM temperatures")
+	selDB, err := db.Query("SELECT * FROM temperatures ORDER BY id DESC")
 	handleError(err)
 
 	temperature := Temperature{}
 	var res []Temperature
 
 	for selDB.Next() {
-		var room string
+		var id int
+		var room, time string
 		var temp, humidity float32
 
-		err = selDB.Scan(&temp, &humidity, &room)
+		err = selDB.Scan(&id, &room, &temp, &humidity, &time)
 
 		handleError(err)
 
@@ -96,7 +96,7 @@ func getAllTemperatures() []Temperature {
 func insertTemperature(temperature Temperature) {
 	db := dbConn()
 
-	_, err := db.Query("INSERT INTO temperatures (room, temperature, humidity, timestamp) VALUES (?, ?, ?, ?)", temperature.Room, temperature.Temperature, temperature.Humidity, time.Now())
+	_, err := db.Query("INSERT INTO temperatures (room, temperature, humidity) VALUES (?, ?, ?)", temperature.Room, temperature.Temperature, temperature.Humidity)
 	handleError(err)
 
 	defer db.Close()
