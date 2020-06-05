@@ -8,6 +8,7 @@ import (
 	"github.com/jinzhu/configor"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 func router(w http.ResponseWriter, req *http.Request) {
@@ -59,7 +60,9 @@ func dbConn() (db *sql.DB) {
 	dbUser := Config.DB.User
 	dbPass := Config.DB.Password
 	dbName := Config.DB.Name
-	db, err := sql.Open(dbDriver, dbUser+":"+dbPass+"@tcp(db:"+string(Config.DB.Port)+")/"+dbName)
+	dbHost := Config.DB.Host
+	dbPort := strconv.Itoa(int(Config.DB.Port))
+	db, err := sql.Open(dbDriver, dbUser+":"+dbPass+"@tcp("+dbHost+":"+dbPort+")/"+dbName)
 
 	handleError(err)
 
@@ -69,25 +72,15 @@ func dbConn() (db *sql.DB) {
 func getAllTemperatures() []Temperature {
 	db := dbConn()
 
-	selDB, err := db.Query("SELECT * FROM temperatures ORDER BY id DESC")
+	selDB, err := db.Query("SELECT room, temperature, humidity, time FROM temperatures ORDER BY id DESC")
 	handleError(err)
 
 	temperature := Temperature{}
 	var res []Temperature
 
 	for selDB.Next() {
-		var id int
-		var room, time string
-		var temp, humidity float32
-
-		err = selDB.Scan(&id, &room, &temp, &humidity, &time)
-
+		err = selDB.Scan(&temperature.Room, &temperature.Temperature, &temperature.Humidity, &temperature.Date)
 		handleError(err)
-
-		temperature.Temperature = temp
-		temperature.Humidity = humidity
-		temperature.Room = room
-
 		res = append(res, temperature)
 	}
 
@@ -99,25 +92,26 @@ func insertTemperature(temperature Temperature) {
 
 	_, err := db.Query("INSERT INTO temperatures (room, temperature, humidity) VALUES (?, ?, ?)", temperature.Room, temperature.Temperature, temperature.Humidity)
 	handleError(err)
-
 	defer db.Close()
-
-	fmt.Println("Temperatuur", temperature.Temperature, "Õhuniiskus", temperature.Humidity, "Ruum", temperature.Room)
+	log.Println("Temperatuur", temperature.Temperature, "Õhuniiskus", temperature.Humidity, "Ruum", temperature.Room)
 }
 
 func handleError(err error) {
 	if err != nil {
-		panic(err.Error())
+		log.Println(err.Error())
 	}
 }
 
 func main() {
+	log.SetFlags(log.Ltime | log.Ldate | log.Lshortfile)
 	http.HandleFunc("/", router)
 
 	err := configor.Load(&Config, "config.yaml")
 	handleError(err)
 
-	fmt.Printf("Starting Thermometrum (+SQL) server in port 8001...\n")
+	log.Printf("Starting Thermometrum on port 8001...\n")
+	log.Println("Ver. " + Config.AppVersion)
+
 	if err := http.ListenAndServe(":8001", nil); err != nil {
 		log.Fatal(err)
 	}
@@ -125,8 +119,9 @@ func main() {
 
 type Temperature struct {
 	Room        string  `json:"room"`
-	Temperature float32 `json:"temperature"`
-	Humidity    float32 `json:"humidity"`
+	Temperature float64 `json:"temperature"`
+	Humidity    float64 `json:"humidity"`
+	Date        string
 }
 
 type Response struct {

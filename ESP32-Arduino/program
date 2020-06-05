@@ -9,7 +9,7 @@ const char* ssid = "Not Found 2.4GHz";
 const char* password = "wifiparool";
 
 //Your Domain name with URL path or IP address with path
-const char* serverName = "http://uvn-243-56.tll07.zonevs.eu:8001";
+const char* serverName = "http://uvn-243-56.tll07.zonevs.eu:8001/api/temperature";
 
 #define DHTPIN 2
 
@@ -22,10 +22,9 @@ DHT dht(DHTPIN, DHTTYPE);
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long lastTime = 0;
-// Timer set to 10 minutes (600000)
-//unsigned long timerDelay = 600000;
-// Set timer to 10 seconds (10000)
-unsigned long timerDelay = 10000;
+// Set timerDelay to 10 minutes. 1000 millis * 60 seconds * 10 minutes
+unsigned long timer = 10;
+unsigned long timerDelay = 1000*60*timer;
 
 String readDHTTemperature() {
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
@@ -60,7 +59,6 @@ String readDHTHumidity() {
 void setup(){
   // Serial port for debugging purposes
   Serial.begin(115200);
-
   dht.begin();
 
   // Connect to Wi-Fi
@@ -74,42 +72,50 @@ void setup(){
   Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
 
-  Serial.println("Timer set to 10 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
+  readAndSend();
+
+  Serial.println("Start loop:");
 }
 
 void loop() {
-  //Send an HTTP POST request every 10 minutes
-  if ((millis() - lastTime) > timerDelay){
+    if ((millis() - lastTime) > timerDelay){
+        readAndSend();
+
+        lastTime = millis();
+    }
+}
+
+void readAndSend() {
     //Check WiFi connection status
-    if(WiFi.status()== WL_CONNECTED){
-      HTTPClient http;
+    if(WiFi.status() == WL_CONNECTED){
+        HTTPClient http;
 
-      String temperature = readDHTTemperature();
-      String humidity = readDHTHumidity();
+        String temperature = readDHTTemperature();
+        String humidity = readDHTHumidity();
 
-      if (temperature && humidity) {
-        // Your Domain name with URL path or IP address with path
-        http.begin(serverName);
+        if (temperature == "false" || humidity == "false") {
+            Serial.println("Temperature or humidity missing");
+        }
+        else {
+            // Your Domain name with URL path or IP address with path
+            http.begin(serverName);
 
-        String request = "{\"api_key\":\"VoGl1gA98WE4c2H\",\"room\":\"elutuba\",\"temperature\":\""+temperature+"\",\"humidity\":\""+humidity+"\"}";
+            String request = "{\"room\":\"elutuba\",\"temperature\":"+temperature+",\"humidity\":"+humidity+"}";
 
-        // If you need an HTTP request with a content type: application/json, use the following:
-        http.addHeader("Content-Type", "application/json");
-        int httpResponseCode = http.POST(request);
+            // If you need an HTTP request with a content type: application/json, use the following:
+            http.addHeader("Content-Type", "application/json");
+            int httpResponseCode = http.POST(request);
 
-        Serial.print("HTTP POST JSON:");
-        Serial.println(request);
-        Serial.print("HTTP Response code: ");
-        Serial.println(httpResponseCode);
+            Serial.print("HTTP POST JSON:");
+            Serial.println(request);
+            Serial.print("HTTP Response code: ");
+            Serial.println(httpResponseCode);
 
-        // Free resources
-        http.end();
-      }
+            // Free resources
+            http.end();
+        }
     }
     else {
-      Serial.println("WiFi Disconnected");
+        Serial.println("WiFi Disconnected");
     }
-
-    lastTime = millis();
-  }
 }
