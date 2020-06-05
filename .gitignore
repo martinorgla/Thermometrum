@@ -1,5 +1,6 @@
 # Application
 Thermometrum
+config.yaml
 
 # Binaries for programs and plugins
 *.exe
