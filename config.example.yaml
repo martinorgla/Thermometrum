@@ -1,0 +1,9 @@
+appname: "Thermometrum"
+appversion: 0.1
+
+db:
+  host: db
+  name: database
+  user: docker
+  password: docker
+  port: 3306

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/configor"
 	"log"
 	"net/http"
 )
@@ -55,10 +56,10 @@ func router(w http.ResponseWriter, req *http.Request) {
 
 func dbConn() (db *sql.DB) {
 	dbDriver := "mysql"
-	dbUser := "docker"
-	dbPass := "docker"
-	dbName := "thermometrum"
-	db, err := sql.Open(dbDriver, dbUser+":"+dbPass+"@tcp(db:3306)/"+dbName)
+	dbUser := Config.DB.User
+	dbPass := Config.DB.Password
+	dbName := Config.DB.Name
+	db, err := sql.Open(dbDriver, dbUser+":"+dbPass+"@tcp(db:"+string(Config.DB.Port)+")/"+dbName)
 
 	handleError(err)
 
@@ -112,6 +113,9 @@ func handleError(err error) {
 
 func main() {
 	http.HandleFunc("/", router)
+
+	err := configor.Load(&Config, "config.yaml")
+	handleError(err)
 
 	fmt.Printf("Starting Thermometrum (+SQL) server in port 8001...\n")
 	if err := http.ListenAndServe(":8001", nil); err != nil {
