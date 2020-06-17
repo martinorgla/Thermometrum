@@ -2,60 +2,12 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
-	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/configor"
 	"log"
-	"net/http"
 	"strconv"
+	"time"
 )
-
-func router(w http.ResponseWriter, req *http.Request) {
-	// TODO: Implement proper router
-	if req.URL.Path != "/api/temperature" {
-		http.Error(w, "404 not found.", http.StatusNotFound)
-		return
-	}
-
-	switch req.Method {
-	case "GET":
-		var temperatures []Temperature = getAllTemperatures()
-
-		json, err := json.Marshal(temperatures)
-
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		//Allow CORS here By * or specific origin
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(json)
-	case "POST":
-		decoder := json.NewDecoder(req.Body)
-		var temperature Temperature
-
-		err := decoder.Decode(&temperature)
-		handleError(err)
-		insertTemperature(temperature)
-
-		response := Response{"OK", 200}
-
-		json, err := json.Marshal(response)
-
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(json)
-	default:
-		fmt.Fprintf(w, "Sorry, only GET and POST methods are supported.")
-	}
-}
 
 func dbConn() (db *sql.DB) {
 	dbDriver := "mysql"
@@ -69,6 +21,22 @@ func dbConn() (db *sql.DB) {
 	handleError(err)
 
 	return db
+}
+
+func getLastTemperature() Temperature {
+	db := dbConn()
+
+	selDB, err := db.Query("SELECT room, temperature, humidity, time FROM temperatures ORDER BY id DESC LIMIt 1")
+	handleError(err)
+
+	temperature := Temperature{}
+
+	for selDB.Next() {
+		err = selDB.Scan(&temperature.Room, &temperature.Temperature, &temperature.Humidity, &temperature.Date)
+		handleError(err)
+	}
+
+	return temperature
 }
 
 func getAllTemperatures() []Temperature {
@@ -106,7 +74,6 @@ func handleError(err error) {
 
 func main() {
 	log.SetFlags(log.Ltime | log.Ldate | log.Lshortfile)
-	http.HandleFunc("/", router)
 
 	err := configor.Load(&Config, "config.yaml")
 	handleError(err)
@@ -114,8 +81,11 @@ func main() {
 	log.Printf("Starting Thermometrum on port 8001...\n")
 	log.Println("Ver. " + Config.AppVersion)
 
-	if err := http.ListenAndServe(":8001", nil); err != nil {
-		log.Fatal(err)
+	go setupRouter()
+
+	// Leave the app running forever
+	for true {
+		time.Sleep(time.Minute * 1)
 	}
 }
 
@@ -123,7 +93,7 @@ type Temperature struct {
 	Room        string  `json:"room"`
 	Temperature float64 `json:"temperature"`
 	Humidity    float64 `json:"humidity"`
-	Date        string
+	Date        string  `json:"date"`
 }
 
 type Response struct {

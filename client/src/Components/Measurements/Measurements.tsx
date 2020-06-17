@@ -8,21 +8,31 @@ class Measurements extends React.Component {
     state = {
         temperature: 0,
         humidity: 0,
+        lastReading: '',
     };
 
     componentDidMount(): void {
-        // TODO: Create endpoint for last temperature
-        axios.get(`http://185.31.243.56:8001/api/temperature`)
-            .then(res => {
-                const temperature = res.data[0].temperature;
-                const humidity = res.data[0].humidity;
+        // TODO: Move to global config?
+        let url = `http://185.31.243.56:8001/api/temperature`;
 
-                this.setState({temperature, humidity});
+        if (window.location.hostname === 'localhost') {
+            url = `http://localhost:8001/api/temperature`;
+        }
+
+        axios.get(url)
+            .then(res => {
+                const temperature = res.data.data.temperature;
+                const humidity = res.data.data.humidity;
+                const lastReading = res.data.data.date;
+                this.setState({temperature, humidity, lastReading});
             })
     }
 
     render() {
         return <Grid container spacing={2}>
+            <Grid item xs={12}>
+                <h5>{this.state.lastReading}</h5>
+            </Grid>
             <Grid item xs={6}>
                 <Temperature temperature={this.state.temperature}/>
             </Grid>
