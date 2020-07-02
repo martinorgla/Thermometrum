@@ -6,10 +6,32 @@ import (
 	"github.com/jinzhu/configor"
 	"log"
 	"strconv"
-	"time"
+	_ "time"
 )
 
-func dbConn() (db *sql.DB) {
+var db *sql.DB
+
+func main() {
+	log.SetFlags(log.Ltime | log.Ldate | log.Lshortfile)
+
+	err := configor.Load(&Config, "config.yaml")
+	handleError(err)
+
+	openDatabaseConnection()
+
+	log.Printf("Starting Thermometrum on port 8001...\n")
+	log.Println("Ver. " + Config.AppVersion)
+
+	setupRouter()
+	// go setupRouter()
+	//
+	// // Leave the app running forever
+	// for true {
+	// 	time.Sleep(time.Minute * 1)
+	// }
+}
+
+func openDatabaseConnection() *sql.DB {
 	dbDriver := "mysql"
 	dbUser := Config.DB.User
 	dbPass := Config.DB.Password
@@ -24,10 +46,9 @@ func dbConn() (db *sql.DB) {
 }
 
 func getLastTemperature() Temperature {
-	db := dbConn()
-
 	selDB, err := db.Query("SELECT room, temperature, humidity, time FROM temperatures ORDER BY id DESC LIMIt 1")
 	handleError(err)
+	defer db.Close()
 
 	temperature := Temperature{}
 
@@ -40,10 +61,9 @@ func getLastTemperature() Temperature {
 }
 
 func getAllTemperatures() []Temperature {
-	db := dbConn()
-
 	selDB, err := db.Query("SELECT room, temperature, humidity, time FROM temperatures ORDER BY id DESC")
 	handleError(err)
+	defer db.Close()
 
 	temperature := Temperature{}
 	var res []Temperature
@@ -58,8 +78,6 @@ func getAllTemperatures() []Temperature {
 }
 
 func insertTemperature(temperature Temperature) {
-	db := dbConn()
-
 	_, err := db.Query("INSERT INTO temperatures (room, temperature, humidity) VALUES (?, ?, ?)", temperature.Room, temperature.Temperature, temperature.Humidity)
 	handleError(err)
 	defer db.Close()
@@ -69,23 +87,6 @@ func insertTemperature(temperature Temperature) {
 func handleError(err error) {
 	if err != nil {
 		log.Println(err.Error())
-	}
-}
-
-func main() {
-	log.SetFlags(log.Ltime | log.Ldate | log.Lshortfile)
-
-	err := configor.Load(&Config, "config.yaml")
-	handleError(err)
-
-	log.Printf("Starting Thermometrum on port 8001...\n")
-	log.Println("Ver. " + Config.AppVersion)
-
-	go setupRouter()
-
-	// Leave the app running forever
-	for true {
-		time.Sleep(time.Minute * 1)
 	}
 }
 
