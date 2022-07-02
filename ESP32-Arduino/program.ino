@@ -5,7 +5,7 @@
 #include <HTTPClient.h>
 
 // Replace with your network credentials
-const char* ssid = "Not Found 2.4GHz";
+const char* ssid = "Not Found";
 const char* password = "wifiparool";
 
 //Your Domain name with URL path or IP address with path

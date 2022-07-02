@@ -15,7 +15,7 @@ func apiGetTemperature(c *gin.Context) {
 }
 
 func apiGetTemperatures(c *gin.Context) {
-	var temperatures []Temperature = getAllTemperatures()
+	var temperatures []Temperature = getLastDayTemperatures()
 
 	c.PureJSON(http.StatusOK, gin.H{
 		"status": http.StatusOK,
@@ -27,6 +27,7 @@ func apiGetTemperatures(c *gin.Context) {
 func apiStoreTemperature(c *gin.Context) {
 	var temperature Temperature
 	c.BindJSON(&temperature)
+	c.Request.Context().Done()
 
 	insertTemperature(temperature)
 

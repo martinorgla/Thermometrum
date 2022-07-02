@@ -23,12 +23,6 @@ func main() {
 	log.Println("Ver. " + Config.AppVersion)
 
 	setupRouter()
-	// go setupRouter()
-	//
-	// // Leave the app running forever
-	// for true {
-	// 	time.Sleep(time.Minute * 1)
-	// }
 }
 
 func openDatabaseConnection() *sql.DB {
@@ -46,7 +40,7 @@ func openDatabaseConnection() *sql.DB {
 }
 
 func getLastTemperature() Temperature {
-	selDB, err := db.Query("SELECT room, temperature, humidity, time FROM temperatures ORDER BY id DESC LIMIt 1")
+	selDB, err := db.Query("SELECT room, temperature, humidity, time FROM temperatures ORDER BY id DESC LIMIT 1")
 	handleError(err)
 	defer db.Close()
 
@@ -60,8 +54,8 @@ func getLastTemperature() Temperature {
 	return temperature
 }
 
-func getAllTemperatures() []Temperature {
-	selDB, err := db.Query("SELECT room, temperature, humidity, time FROM temperatures ORDER BY id DESC")
+func getLastDayTemperatures() []Temperature {
+	selDB, err := db.Query("SELECT room, temperature, humidity, time FROM temperatures ORDER BY id DESC LIMIT 0, 150")
 	handleError(err)
 	defer db.Close()
 
